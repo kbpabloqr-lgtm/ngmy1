@@ -28,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter web bundle
-        run: flutter build web --no-tree-shake-icons --no-wasm-dry-run
+        run: flutter build web --base-href /ngmy1/ --no-tree-shake-icons --no-wasm-dry-run
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'

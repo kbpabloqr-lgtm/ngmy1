@@ -26,4 +26,9 @@ flutter build web --no-tree-shake-icons --no-wasm-dry-run
 ```
 
 The compiled assets land in `build/web`. Pushing to `main` runs the same build in
-CI and publishes the bundle to GitHub Pages.
+CI and publishes the bundle to GitHub Pages. When building for GitHub Pages manually,
+include the base href so asset URLs resolve correctly:
+
+```powershell
+flutter build web --base-href /ngmy1/ --no-tree-shake-icons --no-wasm-dry-run
+```
