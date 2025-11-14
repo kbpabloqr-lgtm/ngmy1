@@ -1,0 +1,11 @@
+# OneDrive exclusion patterns
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.metadata
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/ephemeral/
+linux/ephemeral/

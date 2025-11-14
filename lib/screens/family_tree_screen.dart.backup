@@ -1,0 +1,2697 @@
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:math';
+
+// Market Models
+class CandlestickData {
+  final DateTime timestamp;
+  final double open;
+  final double high;
+  final double low;
+  final double close;
+
+  CandlestickData({
+    required this.timestamp,
+    required this.open,
+    required this.high,
+    required this.low,
+    required this.close,
+  });
+}
+
+class TradePosition {
+  final String id;
+  final String type; // 'up' or 'down'
+  final double entryPrice;
+  final DateTime startTime;
+  final DateTime endTime;
+  final double amount;
+  String status; // 'active', 'won', 'lost'
+  double? exitPrice;
+
+  TradePosition({
+    required this.id,
+    required this.type,
+    required this.entryPrice,
+    required this.startTime,
+    required this.endTime,
+    required this.amount,
+    this.status = 'active',
+    this.exitPrice,
+  });
+
+  bool get isWon => status == 'won';
+  bool get isLost => status == 'lost';
+  bool get isActive => status == 'active';
+}
+
+class TradingSignal {
+  final String pair;
+  final String direction; // 'UP' or 'DOWN'
+  final String accuracy;
+  final DateTime expiry;
+  final int duration; // seconds
+  final Color color;
+
+  TradingSignal({
+    required this.pair,
+    required this.direction,
+    required this.accuracy,
+    required this.expiry,
+    required this.duration,
+    required this.color,
+  });
+}
+
+class OrderHistoryDot {
+  final double price;
+  final DateTime timestamp;
+  final String type; // 'up' or 'down'
+  final bool won;
+  final double amount;
+
+  OrderHistoryDot({
+    required this.price,
+    required this.timestamp,
+    required this.type,
+    required this.won,
+    required this.amount,
+  });
+}
+
+// VPN Models
+class VPNServer {
+  final String id;
+  final String name;
+  final String countryCode;
+  final String flag;
+  final int ping;
+  final bool isPro;
+
+  VPNServer({
+    required this.id,
+    required this.name,
+    required this.countryCode,
+    required this.flag,
+    required this.ping,
+    this.isPro = false,
+  });
+}
+
+class SpeedTestResult {
+  final double downloadSpeed;
+  final double uploadSpeed;
+  final int ping;
+
+  SpeedTestResult({
+    required this.downloadSpeed,
+    required this.uploadSpeed,
+    required this.ping,
+  });
+}
+
+class FamilyTreeScreen extends StatefulWidget {
+  const FamilyTreeScreen({super.key});
+
+  @override
+  State<FamilyTreeScreen> createState() => _FamilyTreeScreenState();
+}
+
+class _FamilyTreeScreenState extends State<FamilyTreeScreen> with TickerProviderStateMixin {
+  // Animation controllers
+  late AnimationController _rotationController;
+  late AnimationController _pulseController;
+  
+  // Market Chart State Variables
+  final List<CandlestickData> _candlestickData = [];
+  Timer? _marketTimer;
+  double _currentPrice = 100.0;
+  int _selectedDuration = 30; // seconds
+  Timer? _candlestickTimer;
+  late CandlestickData _currentCandle;
+  
+  // Trading State Variables
+  final List<TradePosition> _activeTrades = [];
+  final List<TradePosition> _completedTrades = [];
+  double _balance = 1000.0; // Starting balance
+  double _tradeAmount = 10.0; // Amount per trade (now changeable)
+  
+  // AI Trading Variables
+  bool _isAITradingActive = false;
+  Timer? _aiTradingTimer;
+  
+  // Trading Signals Variables
+  List<TradingSignal> _tradingSignals = [];
+  Timer? _signalUpdateTimer;
+  
+  // Order History Dots
+  final List<OrderHistoryDot> _orderHistoryDots = [];
+  
+  // Chart Zoom Variables
+  double _zoomScale = 1.1; // Default 110% zoom for all users
+  
+  // Chart Scrolling Variables
+  double _chartOffset = 0.0; // Horizontal scroll offset for viewing historical data
+  bool _isScrollingChart = false; // Track if user is manually scrolling
+  
+  // Market Sentiment Variables
+  double _bullishPercentage = 62.0; // Dynamic percentage based on market movement
+  final List<double> _recentPrices = []; // Track recent prices for sentiment calculation
+  
+  // Countdown Timer Variables
+  Timer? _countdownTimer;
+  int _remainingSeconds = 0; // Countdown remaining seconds
+  bool _isTradeActive = false; // Track if any trades are active with countdown
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _pulseController.repeat(reverse: true);
+    
+    _initializeMarketData();
+    _startCandlestickTimer();
+    _initializeTradingSignals();
+    _startSignalUpdateTimer();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    _pulseController.dispose();
+    _marketTimer?.cancel();
+    _candlestickTimer?.cancel();
+    _countdownTimer?.cancel();
+    _aiTradingTimer?.cancel();
+    _signalUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  // Market Chart Methods
+  void _initializeMarketData() {
+    // Initialize with realistic historical candlestick data
+    final now = DateTime.now();
+    _currentPrice = 155.0; // Start at a realistic forex price
+    
+    // Generate 20 historical candles for better chart visibility
+    for (int i = 20; i >= 0; i--) {
+      final timestamp = now.subtract(Duration(seconds: _selectedDuration * i));
+      
+      // More realistic price movements
+      final volatility = 0.8; // Higher volatility for visible changes
+      final trend = (Random().nextDouble() - 0.5) * 0.3; // Slight trend bias
+      
+      final open = _currentPrice + (Random().nextDouble() - 0.5) * volatility;
+      final change = (Random().nextDouble() - 0.5) * volatility + trend;
+      final close = open + change;
+      
+      // More realistic high/low calculation
+      final maxMove = math.max(open, close) + Random().nextDouble() * 0.5;
+      final minMove = math.min(open, close) - Random().nextDouble() * 0.5;
+      
+      final high = math.max(maxMove, math.max(open, close));
+      final low = math.min(minMove, math.min(open, close));
+      
+      _candlestickData.add(CandlestickData(
+        timestamp: timestamp,
+        open: open.clamp(145.0, 165.0),
+        high: high.clamp(145.0, 165.0),
+        low: low.clamp(145.0, 165.0),
+        close: close.clamp(145.0, 165.0),
+      ));
+      
+      _currentPrice = close.clamp(145.0, 165.0);
+    }
+    
+    // Start the current candle
+    _startNewCandle();
+  }
+  
+  void _startCandlestickTimer() {
+    // Cancel existing timers
+    _marketTimer?.cancel();
+    _candlestickTimer?.cancel();
+    
+    // Dynamic update frequency based on selected duration
+    // Faster updates for shorter durations, slower for longer durations
+    int updateIntervalMs;
+    switch (_selectedDuration) {
+      case 15:  // 15 seconds - very fast updates (every 200ms)
+        updateIntervalMs = 200;
+        break;
+      case 30:  // 30 seconds - fast updates (every 400ms)
+        updateIntervalMs = 400;
+        break;
+      case 60:  // 1 minute - moderate updates (every 600ms)
+        updateIntervalMs = 600;
+        break;
+      case 120: // 2 minutes - slower updates (every 800ms)
+        updateIntervalMs = 800;
+        break;
+      case 300: // 5 minutes - slowest updates (every 1000ms)
+        updateIntervalMs = 1000;
+        break;
+      default:
+        updateIntervalMs = 500;
+    }
+    
+    // Timer for updating current candle with realistic movement speed
+    _marketTimer = Timer.periodic(Duration(milliseconds: updateIntervalMs), (timer) {
+      _updateCurrentCandle();
+    });
+    
+    // Timer for completing candles based on selected duration
+    _candlestickTimer = Timer.periodic(Duration(seconds: _selectedDuration), (timer) {
+      _completeCurrentCandle();
+    });
+  }
+  
+  void _startNewCandle() {
+    _currentCandle = CandlestickData(
+      timestamp: DateTime.now(),
+      open: _currentPrice,
+      high: _currentPrice,
+      low: _currentPrice,
+      close: _currentPrice,
+    );
+  }
+  
+  void _updateCurrentCandle() {
+    setState(() {
+      // Generate more realistic price movements
+      final random = Random();
+      final volatility = 0.15; // Realistic volatility
+      final momentum = (random.nextDouble() - 0.5) * 0.05; // Small momentum effect
+      
+      // Price change with some momentum and mean reversion
+      final change = (random.nextDouble() - 0.5) * volatility + momentum;
+      final newPrice = _currentPrice + change;
+      
+      // Keep price in realistic range with soft boundaries
+      _currentPrice = newPrice.clamp(145.0, 165.0);
+      
+      // Track recent prices for sentiment calculation
+      _recentPrices.add(_currentPrice);
+      if (_recentPrices.length > 10) {
+        _recentPrices.removeAt(0);
+      }
+      
+      // Calculate bullish percentage based on recent price trend
+      if (_recentPrices.length >= 5) {
+        final early = _recentPrices.take(5).reduce((a, b) => a + b) / 5;
+        final recent = _recentPrices.skip(_recentPrices.length - 5).reduce((a, b) => a + b) / 5;
+        final trend = ((recent - early) / early) * 100;
+        
+        // Convert trend to bullish percentage (50% neutral, trending up increases %)
+        _bullishPercentage = (50 + (trend * 10)).clamp(15.0, 85.0);
+      }
+      
+      // Update current candle with realistic high/low tracking
+      _currentCandle = CandlestickData(
+        timestamp: _currentCandle.timestamp,
+        open: _currentCandle.open,
+        high: math.max(_currentCandle.high, _currentPrice),
+        low: math.min(_currentCandle.low, _currentPrice),
+        close: _currentPrice,
+      );
+    });
+  }
+  
+  void _completeCurrentCandle() {
+    setState(() {
+      // Add completed candle to the list
+      _candlestickData.add(_currentCandle);
+      
+      // Keep only last 20 candles for performance
+      if (_candlestickData.length > 20) {
+        _candlestickData.removeAt(0);
+      }
+      
+      // Start new candle
+      _startNewCandle();
+    });
+  }
+  
+  // Trading Methods (Enhanced version is below)
+  
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel(); // Cancel any existing timer
+    
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_activeTrades.isNotEmpty) {
+          // Find the trade with the shortest remaining time
+          final now = DateTime.now();
+          final remainingTimes = _activeTrades.map((trade) {
+            return trade.endTime.difference(now).inSeconds;
+          }).toList();
+          
+          _remainingSeconds = remainingTimes.reduce((a, b) => a < b ? a : b);
+          
+          if (_remainingSeconds <= 0) {
+            _isTradeActive = false;
+            _countdownTimer?.cancel();
+          }
+        } else {
+          _isTradeActive = false;
+          _countdownTimer?.cancel();
+        }
+      });
+    });
+  }
+  
+  void _resolveTrade(String tradeId) {
+    final tradeIndex = _activeTrades.indexWhere((t) => t.id == tradeId);
+    if (tradeIndex == -1) return;
+    
+    final trade = _activeTrades[tradeIndex];
+    final exitPrice = _currentPrice;
+    trade.exitPrice = exitPrice;
+    
+    bool won = false;
+    if (trade.type == 'up' && exitPrice > trade.entryPrice) {
+      won = true;
+    } else if (trade.type == 'down' && exitPrice < trade.entryPrice) {
+      won = true;
+    }
+    
+    trade.status = won ? 'won' : 'lost';
+    
+    setState(() {
+      _activeTrades.removeAt(tradeIndex);
+      _completedTrades.insert(0, trade);
+      
+      if (won) {
+        _balance += trade.amount * 1.8; // 80% profit
+      }
+      
+      // Update order history dot with result
+      final dotIndex = _orderHistoryDots.indexWhere((dot) => 
+        dot.timestamp == trade.startTime && dot.price == trade.entryPrice);
+      if (dotIndex != -1) {
+        _orderHistoryDots[dotIndex] = OrderHistoryDot(
+          price: trade.entryPrice,
+          timestamp: trade.startTime,
+          type: trade.type,
+          won: won,
+          amount: trade.amount,
+        );
+      }
+      
+      // Keep only last 10 completed trades
+      if (_completedTrades.length > 10) {
+        _completedTrades.removeLast();
+      }
+      
+      // Stop countdown if no more active trades
+      if (_activeTrades.isEmpty) {
+        _isTradeActive = false;
+        _countdownTimer?.cancel();
+      }
+    });
+    
+    // Show result
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          won 
+            ? '🎉 WIN! +\$${(trade.amount * 0.8).toStringAsFixed(2)}' 
+            : '💸 LOSS! -\$${trade.amount.toStringAsFixed(2)}'
+        ),
+        backgroundColor: won ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Trading Signals Methods
+  void _initializeTradingSignals() {
+    _generateTradingSignals();
+  }
+
+  void _startSignalUpdateTimer() {
+    _signalUpdateTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _generateTradingSignals();
+    });
+  }
+
+  void _generateTradingSignals() {
+    setState(() {
+      _tradingSignals.clear();
+      final random = Random();
+      final pairs = ['USD/EUR', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD'];
+      
+      for (int i = 0; i < 4; i++) {
+        final direction = random.nextBool() ? 'UP' : 'DOWN';
+        final accuracy = '${85 + random.nextInt(10)}%'; // 85-94% accuracy
+        final duration = _getRandomSignalDuration();
+        
+        _tradingSignals.add(TradingSignal(
+          pair: pairs[random.nextInt(pairs.length)],
+          direction: direction,
+          accuracy: accuracy,
+          expiry: DateTime.now().add(Duration(seconds: duration)),
+          duration: duration,
+          color: direction == 'UP' ? Colors.green : Colors.red,
+        ));
+      }
+    });
+  }
+
+  int _getRandomSignalDuration() {
+    final durations = [15, 30, 60, 120, 300]; // 15s, 30s, 1m, 2m, 5m
+    return durations[Random().nextInt(durations.length)];
+  }
+
+  void _followSignal(TradingSignal signal) {
+    // Set the trade duration to match the signal
+    setState(() {
+      _selectedDuration = signal.duration;
+      _startCandlestickTimer(); // Restart timer with new duration
+    });
+    
+    // Place the trade
+    _placeTrade(signal.direction.toLowerCase());
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('?? Following ${signal.pair} signal: ${signal.direction} (${signal.accuracy} accuracy)'),
+        backgroundColor: signal.color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // AI Trading Methods
+  void _toggleAITrading() {
+    setState(() {
+      _isAITradingActive = !_isAITradingActive;
+    });
+    
+    if (_isAITradingActive) {
+      _startAITrading();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('?? AI Trading Activated!'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      _stopAITrading();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('?? AI Trading Stopped!'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _startAITrading() {
+    _aiTradingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (_isAITradingActive && _balance >= _tradeAmount) {
+        // AI makes smart trades based on signals
+        if (_tradingSignals.isNotEmpty) {
+          final bestSignal = _tradingSignals.first; // Take the first signal
+          _followSignal(bestSignal);
+        } else {
+          // Fallback to random if no signals
+          final direction = Random().nextBool() ? 'up' : 'down';
+          _placeTrade(direction);
+        }
+      }
+    });
+  }
+
+  void _stopAITrading() {
+    _aiTradingTimer?.cancel();
+    _aiTradingTimer = null;
+  }
+
+  // Order History Methods
+  void _addOrderHistoryDot(TradePosition trade) {
+    _orderHistoryDots.add(OrderHistoryDot(
+      price: trade.entryPrice,
+      timestamp: trade.startTime,
+      type: trade.type,
+      won: trade.isWon,
+      amount: trade.amount,
+    ));
+    
+    // Keep only last 50 dots for performance
+    if (_orderHistoryDots.length > 50) {
+      _orderHistoryDots.removeAt(0);
+    }
+  }
+
+  // Enhanced Trading Method with Multiple Orders Support
+  void _placeTrade(String type) {
+    if (_balance < _tradeAmount) return;
+    if (_activeTrades.length >= 5) { // Limit to 5 concurrent trades
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('?? Maximum 5 trades allowed at once!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final tradeId = DateTime.now().millisecondsSinceEpoch.toString();
+    final endTime = DateTime.now().add(Duration(seconds: _selectedDuration));
+    
+    final trade = TradePosition(
+      id: tradeId,
+      type: type,
+      entryPrice: _currentPrice,
+      startTime: DateTime.now(),
+      endTime: endTime,
+      amount: _tradeAmount,
+    );
+    
+    setState(() {
+      _activeTrades.add(trade);
+      _balance -= _tradeAmount;
+      
+      // Add order history dot
+      _addOrderHistoryDot(trade);
+      
+      // Start countdown timer if this is the first trade
+      if (_activeTrades.length == 1) {
+        _isTradeActive = true;
+        _remainingSeconds = _selectedDuration;
+        _startCountdownTimer();
+      }
+    });
+    
+    // Set timer to resolve trade
+    Timer(Duration(seconds: _selectedDuration), () {
+      _resolveTrade(tradeId);
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('?? ${type.toUpperCase()} trade placed for \$${_tradeAmount.toStringAsFixed(0)}! (${_activeTrades.length}/5)'),
+        backgroundColor: type == 'up' ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // Time Selection Methods
+  String _getTimeLabel(int seconds) {
+    if (seconds < 60) {
+      return '${seconds}s';
+    } else if (seconds < 3600) {
+      final minutes = seconds ~/ 60;
+      return '${minutes}m';
+    } else {
+      final hours = seconds ~/ 3600;
+      return '${hours}h';
+    }
+  }
+
+  void _showTimePicker() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Select Trade Duration', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTimeOption(15, '15 seconds'),
+            _buildTimeOption(30, '30 seconds'),
+            _buildTimeOption(60, '1 minute'),
+            _buildTimeOption(120, '2 minutes'),
+            _buildTimeOption(300, '5 minutes'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeOption(int seconds, String label) {
+    final isSelected = _selectedDuration == seconds;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedDuration = seconds;
+          // Restart timer with new speed based on selected duration
+          _startCandlestickTimer();
+        });
+        Navigator.pop(context);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF1F2937),
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: const Color(0xFF60A5FA)) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.access_time,
+              color: isSelected ? Colors.white : Colors.white70,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Amount Selection Methods
+  void _showAmountPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Select Trade Amount', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildAmountOption(5, '\$5'),
+            _buildAmountOption(10, '\$10'),
+            _buildAmountOption(25, '\$25'),
+            _buildAmountOption(50, '\$50'),
+            _buildAmountOption(100, '\$100'),
+            _buildAmountOption(250, '\$250'),
+            _buildAmountOption(500, '\$500'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountOption(double amount, String label) {
+    final isSelected = _tradeAmount == amount;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _tradeAmount = amount;
+        });
+        Navigator.pop(context);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF10B981) : const Color(0xFF1F2937),
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: const Color(0xFF34D399)) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.attach_money,
+              color: isSelected ? Colors.white : Colors.white70,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Professional Trading Header (top bar with user info, balance, etc.)
+  Widget _buildProfessionalHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1419),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // User Profile Picture - Clickable
+          GestureDetector(
+            onTap: () {
+              _showProfileMenu();
+            },
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF4CAF50), width: 2),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Gift Box Icon - Clickable
+          GestureDetector(
+            onTap: () {
+              _showBonusDialog();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E3A8A),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.card_giftcard,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+          
+          const Spacer(),
+          
+          // Balance Display with Dropdown - Clickable
+          GestureDetector(
+            onTap: () {
+              _showAccountOptions();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2937),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'QT Real',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'USD',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '\$${_balance.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Wallet Icon - Clickable
+          GestureDetector(
+            onTap: () {
+              _showWalletOptions();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Trading Pair Information
+  Widget _buildTradingPairInfo() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: const Color(0xFF0F1419),
+      child: Row(
+        children: [
+          // Trading Pair Name
+          const Text(
+            'USD/CAD OTC',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            color: Colors.white70,
+            size: 20,
+          ),
+          
+          const SizedBox(width: 20),
+          
+          // More Options
+          const Icon(
+            Icons.more_horiz,
+            color: Colors.white70,
+            size: 24,
+          ),
+          
+          const SizedBox(width: 20),
+          
+          // Delete/Trash Icon
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F2937),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              Icons.delete_outline,
+              color: Colors.white70,
+              size: 16,
+            ),
+          ),
+          
+          const Spacer(),
+          
+          // Price and Expiration Info
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isTradeActive ? 'Countdown' : 'Expiration time',
+                    style: TextStyle(
+                      color: _isTradeActive ? Colors.orange : Colors.white54,
+                      fontSize: 10,
+                      fontWeight: _isTradeActive ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  if (_isTradeActive && _activeTrades.length > 1) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue, width: 0.5),
+                      ),
+                      child: Text(
+                        '${_activeTrades.length}',
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: _isTradeActive ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
+                decoration: _isTradeActive ? BoxDecoration(
+                  color: _remainingSeconds <= 10 ? Colors.red.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _remainingSeconds <= 10 ? Colors.red : Colors.orange,
+                    width: 1,
+                  ),
+                ) : null,
+                child: _isTradeActive && _remainingSeconds <= 10
+                  ? AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        return Text(
+                          '${(_remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            color: Color.lerp(Colors.red, Colors.redAccent, _pulseController.value),
+                            fontSize: 12 + (_pulseController.value * 2), // Pulsing size effect
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
+                    )
+                  : Text(
+                      _isTradeActive 
+                        ? '${(_remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}'
+                        : '${(_selectedDuration ~/ 60).toString().padLeft(2, '0')}:${(_selectedDuration % 60).toString().padLeft(2, '0')}',
+                      style: TextStyle(
+                        color: _isTradeActive 
+                          ? (_remainingSeconds <= 10 ? Colors.red : Colors.orange)
+                          : Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Professional Chart Frame (includes price, chart, and percentage bar)
+  Widget _buildProfessionalChart() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1419),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withAlpha((0.1 * 255).round()), width: 1),
+      ),
+      child: Column(
+        children: [
+          // Top: Current Price Display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF1F2937), width: 1)),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  _currentPrice.toStringAsFixed(5),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _recentPrices.length >= 2 && _recentPrices.last > _recentPrices[_recentPrices.length - 2] 
+                        ? Colors.green 
+                        : Colors.red,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _recentPrices.length >= 2 
+                        ? (_recentPrices.last > _recentPrices[_recentPrices.length - 2] ? '+' : '') +
+                          (_recentPrices.last - _recentPrices[_recentPrices.length - 2]).toStringAsFixed(5)
+                        : '0.00000',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Zoom Controls
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _zoomScale = (_zoomScale - 0.05).clamp(0.5, 5.0); // 5% decrease each click
+                        });
+                      },
+                      icon: const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
+                    ),
+                    Text(
+                      '${(_zoomScale * 100).round()}%',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _zoomScale = (_zoomScale + 0.05).clamp(0.5, 5.0); // 5% increase each click
+                        });
+                      },
+                      icon: const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Middle: Chart Area with Zoom and Horizontal Scrolling
+          Expanded(
+            child: GestureDetector(
+              onScaleStart: (details) {
+                _isScrollingChart = true;
+              },
+              onScaleUpdate: (details) {
+                setState(() {
+                  // Handle zoom
+                  _zoomScale = (_zoomScale * details.scale).clamp(0.5, 5.0);
+                  
+                  // Handle horizontal scrolling through historical data
+                  _chartOffset += details.focalPointDelta.dx;
+                  _chartOffset = _chartOffset.clamp(-1000.0, 0.0); // Limit scroll range
+                });
+              },
+              onScaleEnd: (details) {
+                // Auto-scroll back to latest if user releases near the end
+                if (_chartOffset > -50) {
+                  setState(() {
+                    _chartOffset = 0.0;
+                    _isScrollingChart = false;
+                  });
+                } else {
+                  _isScrollingChart = false;
+                  // Add a timer to auto-return to live view after 3 seconds of no interaction
+                  Timer(const Duration(seconds: 3), () {
+                    if (!_isScrollingChart && _chartOffset < -10) {
+                      setState(() {
+                        _chartOffset = 0.0;
+                      });
+                    }
+                  });
+                }
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      painter: ProfessionalCandlestickPainter(
+                        [..._candlestickData, _currentCandle], 
+                        zoomScale: _zoomScale,
+                        activeTrades: _activeTrades,
+                        currentPrice: _currentPrice,
+                        chartOffset: _chartOffset,
+                        orderHistoryDots: _orderHistoryDots,
+                      ),
+                      size: Size.infinite,
+                    ),
+                    // Historical viewing indicator
+                    if (_chartOffset < -10)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.history, color: Colors.white, size: 16),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'Historical View',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _chartOffset = 0.0;
+                                    _isScrollingChart = false;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Back to Live button
+                    if (_chartOffset < -50)
+                      Positioned(
+                        bottom: 20,
+                        right: 20,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _chartOffset = 0.0;
+                              _isScrollingChart = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(25),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Back to Live',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          // Bottom: Percentage Bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFF1F2937), width: 1)),
+            ),
+            child: Column(
+              children: [
+                // Percentage Bar
+                Row(
+                  children: [
+                    // Bullish percentage (left side)
+                    Expanded(
+                      flex: _bullishPercentage.round(), 
+                      child: Container(
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981), // Green
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Bearish percentage (right side)  
+                    Expanded(
+                      flex: (100 - _bullishPercentage).round(), 
+                      child: Container(
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444), // Red
+                          borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Percentage Labels
+                Row(
+                  children: [
+                    Text(
+                      '${_bullishPercentage.round()}%',
+                      style: const TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${(100 - _bullishPercentage).round()}%',
+                      style: const TextStyle(
+                        color: Color(0xFFEF4444),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Trading Controls Area (bottom section with UP/DOWN buttons, amount, etc.)
+  Widget _buildTradingControlsArea() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F1419),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Time and Amount Controls
+          Row(
+            children: [
+              // Time Section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Time',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _showTimePicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2937),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withAlpha((0.1 * 255).round())),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.access_time,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _getTimeLabel(_selectedDuration),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 20),
+              
+              // Amount Section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Amount',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _showAmountPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2937),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withAlpha((0.1 * 255).round())),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Icon(
+                              Icons.attach_money,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _tradeAmount.toStringAsFixed(0),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Payout and Profit Info
+          Row(
+            children: [
+              // Payout
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Payout',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    '\$${(_tradeAmount * 1.56).toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const Spacer(),
+              
+              // Profit Percentage
+              const Text(
+                '+56%',
+                style: TextStyle(
+                  color: Color(0xFF10B981),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Profit Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'Profit',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    '+\$${(_tradeAmount * 0.56).toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Color(0xFF10B981),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // UP and DOWN Trading Buttons
+          Row(
+            children: [
+              // UP Button (Green)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _placeTrade('up'),
+                  child: Container(
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.arrow_upward,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              // Modern AI TRADING Button with Toggle - Clickable
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: () {
+                    _toggleAITrading();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: _isAITradingActive 
+                        ? const LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isAITradingActive ? Colors.green : Colors.blue).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedRotation(
+                            turns: _isAITradingActive ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 600),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                _isAITradingActive ? Icons.pause : Icons.psychology,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _isAITradingActive ? 'AI ACTIVE' : 'AI TRADING',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (_isAITradingActive)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  width: 4,
+                                  height: 4,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              // DOWN Button (Red)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _placeTrade('down'),
+                  child: Container(
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.arrow_downward,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0F1419), // Professional dark
+              Color(0xFF1A202C), // Darker
+              Color(0xFF2D3748), // Medium dark
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Professional Header Only (no extra header)
+              _buildProfessionalHeader(),
+              
+              // Main content
+              Expanded(
+                child: _getSelectedTabContent(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Get content for selected tab
+  Widget _getSelectedTabContent() {
+    return _buildVPNContent(); // Professional Trading Interface (main)
+  }
+
+  // VPN Content (Global tab)
+  Widget _buildVPNContent() {
+    return Container(
+      color: const Color(0xFF0F1419), // Dark background like the professional interface
+      child: Column(
+        children: [
+          // Trading Pair and Price Info
+          _buildTradingPairInfo(),
+          
+          // Main Trading Chart
+          Expanded(
+            flex: 3,
+            child: _buildProfessionalChart(),
+          ),
+          
+          // Trading Signals Panel
+          _buildTradingSignalsPanel(),
+          
+          // Trading Controls Area
+          _buildTradingControlsArea(),
+        ],
+      ),
+    );
+  }
+
+  // Trading Signals Panel
+  Widget _buildTradingSignalsPanel() {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1419),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withAlpha((0.1 * 255).round()), width: 1),
+      ),
+      child: Column(
+        children: [
+          // Signals Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF1F2937), width: 1)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.flash_on, color: Colors.orange, size: 16),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Live Trading Signals',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'LIVE',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Signals List
+          Expanded(
+            child: _tradingSignals.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Loading signals...',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                )
+              : ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  itemCount: _tradingSignals.length,
+                  itemBuilder: (context, index) {
+                    final signal = _tradingSignals[index];
+                    final timeLeft = signal.expiry.difference(DateTime.now()).inSeconds;
+                    
+                    return Container(
+                      width: 140,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => _followSignal(signal),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                signal.color.withValues(alpha: 0.2),
+                                signal.color.withValues(alpha: 0.1),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: signal.color.withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    signal.pair,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Icon(
+                                    signal.direction == 'UP' ? Icons.arrow_upward : Icons.arrow_downward,
+                                    color: signal.color,
+                                    size: 14,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                signal.direction,
+                                style: TextStyle(
+                                  color: signal.color,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${signal.accuracy} | ${timeLeft}s',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1628),
+        title: const Text('Support', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Need help? Contact us:', style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 16),
+            const Text('📧 Email: support@kurbanvpn.com', style: TextStyle(color: Colors.white)),
+            const SizedBox(height: 8),
+            const Text('💬 Live Chat: Available 24/7', style: TextStyle(color: Colors.white)),
+            const SizedBox(height: 8),
+            const Text('📱 Phone: +1-555-VPN-HELP', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF4CAF50))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0A1628),
+        title: const Text('Privacy Policy', style: TextStyle(color: Colors.white)),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Your privacy is important to us. KurbanVPN:\n\n'
+            '• Does not log your browsing activity\n'
+            '• Uses strong encryption to protect your data\n'
+            '• Follows a strict no-logs policy\n'
+            '• Complies with international privacy laws\n\n'
+            'For the complete privacy policy, visit our website.',
+            style: TextStyle(color: Colors.white70, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF4CAF50))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveTradesDisplay() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.blue.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.trending_up, color: Colors.blue, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'Active Trades',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_activeTrades.length}',
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          ..._activeTrades.map((trade) {
+            final timeLeft = trade.endTime.difference(DateTime.now()).inSeconds;
+            final progress = 1 - (timeLeft / _selectedDuration);
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (trade.type == 'up' ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: trade.type == 'up' ? Colors.green : Colors.red,
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        trade.type == 'up' ? Icons.trending_up : Icons.trending_down,
+                        color: trade.type == 'up' ? Colors.green : Colors.red,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${trade.type.toUpperCase()} \$${trade.amount.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${timeLeft}s',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        'Entry: \$${trade.entryPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Current: \$${_currentPrice.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: _currentPrice > trade.entryPrice 
+                            ? Colors.green 
+                            : _currentPrice < trade.entryPrice 
+                              ? Colors.red 
+                              : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      trade.type == 'up' ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // Professional Bottom Navigation with full names
+  Widget _buildProfessionalBottomNavigation() {
+    return Container(
+      height: 85,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1419),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildProfessionalNavItem(Icons.refresh, 'Trades', 0),
+          _buildProfessionalNavItem(Icons.wifi, 'Signals', 1),
+          _buildProfessionalNavItem(Icons.people, 'Social Trading', 2),
+          _buildProfessionalNavItem(Icons.speed, 'Express Tournament', 3),
+          _buildProfessionalNavItem(Icons.emoji_events, 'Tournament', 4),
+          _buildProfessionalNavItem(Icons.hourglass_empty, 'Pending Tournament', 5),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfessionalNavItem(IconData icon, String label, int tabIndex) {
+    final isActive = tabIndex == 0; // Always show first tab as active
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          // Removed tab switching functionality
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? const Color(0xFF3B82F6) : Colors.white54,
+              size: 22,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? const Color(0xFF3B82F6) : Colors.white54,
+                fontSize: 8,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // AI Trading activation method
+  void _activateAITrading() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('AI Trading', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.smart_toy, size: 64, color: Color(0xFF3B82F6)),
+            const SizedBox(height: 16),
+            const Text(
+              'Activate AI Trading Bot?',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'AI will make trades automatically based on market analysis',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('🤖 AI Trading Activated!'), backgroundColor: Colors.blue),
+                      );
+                      // Start automatic trading every 10 seconds
+                      Timer.periodic(const Duration(seconds: 10), (timer) {
+                        if (Random().nextBool()) {
+                          _placeTrade('up');
+                        } else {
+                          _placeTrade('down');
+                        }
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
+                    child: const Text('Activate', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Header Interactive Methods
+  void _showProfileMenu() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Profile Menu', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline, color: Colors.white70),
+              title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile editing feature coming soon!'), backgroundColor: Colors.blue),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history, color: Colors.white70),
+              title: const Text('Trade History', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Trade history opened!'), backgroundColor: Colors.green),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings, color: Colors.white70),
+              title: const Text('Account Settings', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Account settings opened!'), backgroundColor: Colors.orange),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF4CAF50))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBonusDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Daily Bonus', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.card_giftcard, size: 64, color: Color(0xFF1E3A8A)),
+            const SizedBox(height: 16),
+            const Text(
+              'Collect your daily bonus!',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '\$50 Daily Trading Bonus',
+              style: TextStyle(color: Color(0xFF10B981), fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _balance += 50;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('🎁 Daily bonus collected! +\$50'), backgroundColor: Colors.green),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A)),
+              child: const Text('Collect Bonus', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAccountOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F1419),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Account Options',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.account_balance, color: Colors.green),
+              title: const Text('QT Real Account', style: TextStyle(color: Colors.white)),
+              subtitle: Text('\$${_balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green)),
+              trailing: const Icon(Icons.check_circle, color: Colors.green),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Already using QT Real Account'), backgroundColor: Colors.green),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.psychology, color: Colors.blue),
+              title: const Text('Demo Account', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('\$10,000 (Practice)', style: TextStyle(color: Colors.blue)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Switched to Demo Account!'), backgroundColor: Colors.blue),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_circle, color: Colors.orange),
+              title: const Text('Add Funds', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Deposit more money', style: TextStyle(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDepositDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showWalletOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F1419),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Wallet Options',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.add, color: Colors.green),
+              title: const Text('Deposit', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Add funds to your account', style: TextStyle(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDepositDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.remove, color: Colors.red),
+              title: const Text('Withdraw', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Withdraw your profits', style: TextStyle(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                _showWithdrawDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history, color: Colors.blue),
+              title: const Text('Transaction History', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('View all transactions', style: TextStyle(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Transaction history opened!'), backgroundColor: Colors.blue),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDepositDialog() {
+    final TextEditingController amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Deposit Funds', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Amount (\$)',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF10B981)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => amountController.text = '100',
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    child: const Text('\$100', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => amountController.text = '500',
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    child: const Text('\$500', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => amountController.text = '1000',
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    child: const Text('\$1000', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(amountController.text) ?? 0;
+              if (amount > 0) {
+                setState(() {
+                  _balance += amount;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('💰 Deposited \$${amount.toStringAsFixed(2)}!'), backgroundColor: Colors.green),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            child: const Text('Deposit', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWithdrawDialog() {
+    final TextEditingController amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1419),
+        title: const Text('Withdraw Funds', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Available: \$${_balance.toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.green, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Amount (\$)',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFEF4444)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.blue)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(amountController.text) ?? 0;
+              if (amount > 0 && amount <= _balance) {
+                setState(() {
+                  _balance -= amount;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('💸 Withdrawn \$${amount.toStringAsFixed(2)}!'), backgroundColor: Colors.orange),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid amount or insufficient funds'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Withdraw', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _followSignal(String pair, String direction, String accuracy) {
+    setState(() {
+      _placeTrade(direction.toLowerCase());
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📈 Following $pair signal: $direction ($accuracy accuracy)'),
+        backgroundColor: direction == 'UP' ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+}
+
+// Custom Painters
+class ProfessionalCandlestickPainter extends CustomPainter {
+  final List<CandlestickData> data;
+  final double zoomScale;
+  final List<TradePosition> activeTrades;
+  final double currentPrice;
+  final double chartOffset;
+  final List<OrderHistoryDot> orderHistoryDots;
+  
+  ProfessionalCandlestickPainter(
+    this.data, {
+    this.zoomScale = 1.0, 
+    this.activeTrades = const [], 
+    this.currentPrice = 0.0, 
+    this.chartOffset = 0.0,
+    this.orderHistoryDots = const [],
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..strokeWidth = 2;
+    
+    if (data.isEmpty) return;
+    
+    // Calculate dynamic price range
+    double minPrice = data.map((e) => e.low).reduce(math.min);
+    double maxPrice = data.map((e) => e.high).reduce(math.max);
+    final priceRange = maxPrice - minPrice;
+    
+    // Add padding to the range
+    minPrice -= priceRange * 0.1;
+    maxPrice += priceRange * 0.1;
+    final paddedRange = maxPrice - minPrice;
+    
+    // Apply zoom to candle width
+    final candleWidth = (size.width / data.length) * zoomScale;
+    final visibleCandles = (size.width / candleWidth).floor();
+    final startIndex = math.max(0, data.length - visibleCandles);
+    
+    for (int i = startIndex; i < data.length; i++) {
+      final candle = data[i];
+      final relativeIndex = i - startIndex;
+      final x = relativeIndex * candleWidth + candleWidth / 2 + chartOffset;
+      
+      // Skip if outside visible area
+      if (x < -candleWidth || x > size.width + candleWidth) continue;
+      
+      // Draw candlestick body
+      final isUp = candle.close > candle.open;
+      paint.color = isUp ? const Color(0xFF10B981) : const Color(0xFFEF4444); // Green for up, red for down
+      
+      // Convert prices to screen coordinates
+      final bodyTop = size.height * (1 - (math.max(candle.open, candle.close) - minPrice) / paddedRange);
+      final bodyBottom = size.height * (1 - (math.min(candle.open, candle.close) - minPrice) / paddedRange);
+      
+      // Make candle width responsive to zoom
+      final bodyWidth = math.max(2.0, candleWidth / 4);
+      
+      canvas.drawRect(
+        Rect.fromLTRB(x - bodyWidth, bodyTop, x + bodyWidth, bodyBottom),
+        paint,
+      );
+      
+      // Draw wicks
+      final wickTop = size.height * (1 - (candle.high - minPrice) / paddedRange);
+      final wickBottom = size.height * (1 - (candle.low - minPrice) / paddedRange);
+      
+      paint.strokeWidth = math.max(1.0, zoomScale);
+      canvas.drawLine(Offset(x, wickTop), Offset(x, bodyTop), paint);
+      canvas.drawLine(Offset(x, bodyBottom), Offset(x, wickBottom), paint);
+    }
+    
+    // Draw order history dots
+    for (var dot in orderHistoryDots) {
+      final dotY = size.height * (1 - (dot.price - minPrice) / paddedRange);
+      
+      // Find the approximate X position based on timestamp
+      final dotX = size.width * 0.8; // Place dots towards the right side
+      
+      // Draw outer circle (glow effect)
+      final glowPaint = Paint()
+        ..color = (dot.won ? Colors.green : Colors.red).withValues(alpha: 0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(dotX, dotY), 8, glowPaint);
+      
+      // Draw main dot
+      final dotPaint = Paint()
+        ..color = dot.won ? Colors.green : Colors.red
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(dotX, dotY), 4, dotPaint);
+      
+      // Draw inner dot for win
+      if (dot.won) {
+        final innerPaint = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(dotX, dotY), 2, innerPaint);
+      }
+    }
+    
+    // Draw trade entry points and win/lose areas
+    for (final trade in activeTrades) {
+      final entryY = size.height * (1 - (trade.entryPrice - minPrice) / paddedRange);
+      
+      // Draw entry price line
+      paint
+        ..color = trade.type == 'up' ? const Color(0xFF10B981) : const Color(0xFFEF4444)
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+      
+      // Dashed line for entry price
+      _drawDashedLine(canvas, Offset(0, entryY), Offset(size.width, entryY), paint);
+      
+      // Draw entry point dot
+      paint.style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size.width * 0.95, entryY), 6, paint);
+      
+      // Draw win/lose area fade
+      if (trade.type == 'up') {
+        // Green fade above entry price (win area)
+        final winGradient = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF10B981).withAlpha((0.3 * 255).round()),
+              const Color(0xFF10B981).withAlpha((0.1 * 255).round()),
+            ],
+          ).createShader(Rect.fromLTRB(0, 0, size.width, entryY));
+        canvas.drawRect(Rect.fromLTRB(0, 0, size.width, entryY), winGradient);
+        
+        // Red fade below entry price (lose area)
+        final loseGradient = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFFEF4444).withAlpha((0.1 * 255).round()),
+              const Color(0xFFEF4444).withAlpha((0.3 * 255).round()),
+            ],
+          ).createShader(Rect.fromLTRB(0, entryY, size.width, size.height));
+        canvas.drawRect(Rect.fromLTRB(0, entryY, size.width, size.height), loseGradient);
+      } else {
+        // Red fade above entry price (lose area)
+        final loseGradient = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFFEF4444).withAlpha((0.3 * 255).round()),
+              const Color(0xFFEF4444).withAlpha((0.1 * 255).round()),
+            ],
+          ).createShader(Rect.fromLTRB(0, 0, size.width, entryY));
+        canvas.drawRect(Rect.fromLTRB(0, 0, size.width, entryY), loseGradient);
+        
+        // Green fade below entry price (win area)
+        final winGradient = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF10B981).withAlpha((0.1 * 255).round()),
+              const Color(0xFF10B981).withAlpha((0.3 * 255).round()),
+            ],
+          ).createShader(Rect.fromLTRB(0, entryY, size.width, size.height));
+        canvas.drawRect(Rect.fromLTRB(0, entryY, size.width, size.height), winGradient);
+      }
+    }
+  }
+  
+  // Helper method to draw dashed lines
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const dashWidth = 8.0;
+    const dashSpace = 4.0;
+    double distance = (end - start).distance;
+    double currentDistance = 0.0;
+    
+    while (currentDistance < distance) {
+      final currentStart = Offset.lerp(start, end, currentDistance / distance)!;
+      currentDistance += dashWidth;
+      final currentEnd = Offset.lerp(start, end, math.min(currentDistance, distance) / distance)!;
+      canvas.drawLine(currentStart, currentEnd, paint);
+      currentDistance += dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}

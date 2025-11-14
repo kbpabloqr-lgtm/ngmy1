@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "36182036977",
+    "project_id": "ngmy1-c5f01",
+    "storage_bucket": "ngmy1-c5f01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:36182036977:android:c373a6e18fccb3841f7450",
+        "android_client_info": {
+          "package_name": "com.example.ngmy1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKGX40FgflyigM0hPKzfp7LYlZKGU4wAc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

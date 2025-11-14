@@ -1,0 +1,6 @@
+TODO:
+- Overhaul Growth/Global messaging UI with brand-new theme and layout
+- Implement new composer with voice note support (record/playback)
+- Redesign message bubbles, include avatars, timestamps, lock banners
+- Update admin views for studios with scheduling/lock controls and matching theme
+- Apply same styling upgrades to Global studio entry points and notifications

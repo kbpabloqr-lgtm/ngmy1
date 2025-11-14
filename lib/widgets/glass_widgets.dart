@@ -1,0 +1,639 @@
+import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'dart:async';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:math' as math;
+import '../theme/liquid_theme.dart';
+
+/// A small animated reflection that drifts across the screen
+class AnimatedReflection extends StatefulWidget {
+  const AnimatedReflection({super.key});
+
+  @override
+  State<AnimatedReflection> createState() => _AnimatedReflectionState();
+}
+
+class _AnimatedReflectionState extends State<AnimatedReflection> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this, 
+    duration: const Duration(seconds: 8)
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final t = _controller.value;
+          return SizedBox.expand(
+            child: Opacity(
+              opacity: 0.08,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(-0.2 + 0.8 * (t - 0.5), -0.4 + 0.9 * t),
+                    radius: 1.2,
+                    colors: [Colors.white.withAlpha(46), Colors.white.withAlpha(5), Colors.transparent],
+                    stops: const [0.0, 0.35, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Data class for menu items with styling information
+class _MenuItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  
+  const _MenuItem(this.label, this.icon, this.color);
+}
+
+/// Circular menu with six items and a central home icon
+class CircularMenu extends StatelessWidget {
+  final double size;
+  const CircularMenu({super.key, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final ringRadius = size * 0.36;
+    final itemSize = size * 0.22;
+    double centralSize = size * 0.18;
+    const gap = 8.0;
+    final itemRadius = itemSize / 2;
+    double centralRadius = centralSize / 2;
+    
+    if (centralRadius + itemRadius + gap >= ringRadius) {
+      final maxCentralRadius = ringRadius - itemRadius - gap;
+      final clampedRadius = math.max(24.0, maxCentralRadius);
+      centralRadius = clampedRadius;
+      centralSize = centralRadius * 2;
+    }
+
+    // Menu items with modern icons and their specific theme colors
+    final menuItems = [
+      _MenuItem('Growth & Investment', Icons.trending_up_rounded, const Color(0xFF00C853)),  // Vibrant green for growth
+      _MenuItem('Money Management', Icons.account_balance_wallet_rounded, const Color(0xFFFFD700)),  // Gold color for money
+      _MenuItem('Media & News', Icons.live_tv_rounded, const Color(0xFF2962FF)),  // Bright blue for media
+      _MenuItem('NGMY Store', Icons.shopping_bag_rounded, const Color(0xFF00BFA5)),  // Teal for store
+      _MenuItem('Family Tree', Icons.diversity_3_rounded, const Color(0xFF8E24AA)),  // Royal purple for family
+      _MenuItem('Learn & Grow', Icons.school_rounded, const Color(0xFFFF6D00)),  // Bright orange for learning
+    ];
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Main ring backdrop with ultra-transparent glass effect
+          Positioned.fill(
+            child: Center(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withAlpha((0.1 * 255).round()),
+                      Colors.white.withAlpha((0.05 * 255).round()),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+                child: GlassSurface(
+                  blur: 25,
+                  elevation: 15,
+                  borderRadius: BorderRadius.circular(size),
+                  color: Colors.white.withAlpha((0.03 * 255).round()),
+                  child: SizedBox(width: size * 0.98, height: size * 0.98),
+                ),
+              ),
+            ),
+          ),
+          // Menu items
+          for (var i = 0; i < menuItems.length; i++) 
+            _ringItem(context, i, menuItems[i], ringRadius, itemSize),
+          // Center button with enhanced glass effect
+          GlassSurface(
+            blur: 15,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(centralSize),
+            color: Colors.white.withAlpha((0.12 * 255).round()),
+            child: SizedBox(
+              width: centralSize,
+              height: centralSize,
+              child: Center(
+                child: _ReflectiveGlass(size: centralSize * 0.9),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ringItem(BuildContext context, int index, _MenuItem item, double radius, double itemSize) {
+    final startRadians = -math.pi / 2;
+    final angle = startRadians + index * (2 * math.pi / 6);
+    final dx = radius * math.cos(angle);
+    final dy = radius * math.sin(angle);
+
+    return Positioned(
+      left: null,
+      top: null,
+      right: null,
+      bottom: null,
+      child: Transform.translate(
+        offset: Offset(dx, dy),
+        child: SizedBox(
+          width: itemSize * 2.2, // Increased size for better text visibility
+          height: itemSize * 2.2,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Interactive button with enhanced glass effect
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("${item.label} coming soon"),
+                      backgroundColor: item.color.withAlpha((0.9 * 255).round()),
+                    )
+                  );
+                },
+                child: GlassSurface(
+                  blur: 15,
+                  elevation: 12,
+                  borderRadius: BorderRadius.circular(itemSize),
+                  padding: EdgeInsets.zero,
+                  color: Colors.white.withAlpha((0.05 * 255).round()), // Ultra-transparent base
+                  child: Container(
+                    width: itemSize,
+                    height: itemSize,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(itemSize),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          item.color.withAlpha((0.4 * 255).round()),
+                          item.color.withAlpha((0.1 * 255).round()),
+                        ],
+                        stops: const [0.0, 0.9],
+                      ),
+                    ),
+                    child: Center(
+                      child: Stack(
+                        children: [
+                          // Glowing background effect
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    item.color.withAlpha((0.2 * 255).round()),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Icon with glow
+                          Center(
+                            child: Icon(
+                              item.icon,
+                              size: itemSize * 0.5,
+                              color: item.color,
+                              shadows: [
+                                Shadow(
+                                  color: item.color.withAlpha((0.5 * 255).round()),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Enhanced menu label with better visibility
+              Transform.translate(
+                offset: Offset(0, -itemSize * 0.95),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.black.withAlpha((0.75 * 255).round()),
+                    border: Border.all(
+                      color: item.color.withAlpha((0.3 * 255).round()),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha((0.2 * 255).round()),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    item.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: item.color.withAlpha((0.5 * 255).round()),
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReflectiveGlass extends StatefulWidget {
+  final double size;
+  const _ReflectiveGlass({required this.size});
+
+  @override
+  State<_ReflectiveGlass> createState() => _ReflectiveGlassState();
+}
+
+class _ReflectiveGlassState extends State<_ReflectiveGlass> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this, 
+    duration: const Duration(seconds: 8)
+  )..repeat();
+  
+  StreamSubscription<AccelerometerEvent>? _sub;
+  double _dx = 0.0, _dy = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeSensors();
+    });
+  }
+
+  Future<void> _initializeSensors() async {
+    try {
+      if (!mounted) return;
+      
+      final stream = accelerometerEvents;
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (!mounted) return;
+      
+      _sub = stream.listen(
+        (event) {
+          if (!mounted) return;
+          setState(() {
+            _dx = (event.x / 9.8).clamp(-1.0, 1.0) * 0.35;
+            _dy = (event.y / 9.8).clamp(-1.0, 1.0) * 0.35;
+          });
+        },
+        onError: (e) {
+          _dx = 0.0;
+          _dy = 0.0;
+        },
+        cancelOnError: true,
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _dx = 0.0;
+          _dy = 0.0;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        final cx = (_dx.abs() > 0.001) ? -_dx : (-0.2 + 0.8 * (t - 0.5));
+        final cy = (_dy.abs() > 0.001) ? -_dy : (-0.4 + 0.9 * t);
+        return SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: Alignment(cx, cy),
+                radius: 0.9,
+                colors: [Colors.white.withAlpha(120), Colors.white.withAlpha(12), Colors.transparent],
+                stops: const [0.0, 0.35, 1.0],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A reusable glass surface that provides a frosted translucent effect with
+/// subtle reflections and shadows. Perfect for cards, modals, and containers.
+class GlassSurface extends StatelessWidget {
+  final Widget child;
+  final double blur;
+  final double elevation;
+  final BorderRadius? borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final bool addReflection;
+  final Color? color;
+
+  const GlassSurface({
+    super.key,
+    required this.child,
+    this.blur = 10.0,
+    this.elevation = 0.0,
+    this.borderRadius,
+    this.padding,
+    this.addReflection = true,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(24);
+    
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            gradient: color != null 
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color!.withAlpha((0.7 * 255).round()),
+                      color!.withAlpha((0.3 * 255).round()),
+                    ],
+                  )
+                : LiquidColors.glassGradient(context),
+            borderRadius: radius,
+            border: Border.all(
+              color: context.glassHighlight,
+              width: 0.5,
+            ),
+            boxShadow: elevation > 0 ? [
+              BoxShadow(
+                color: Colors.black.withAlpha((0.1 * 255).round()),
+                blurRadius: elevation,
+                offset: Offset(0, elevation / 2),
+              ),
+            ] : null,
+          ),
+          child: Stack(
+            children: [
+              if (addReflection) _buildReflection(radius),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildReflection(BorderRadius radius) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white30, Colors.white10, Colors.transparent],
+              stops: [0.0, 0.3, 0.6],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A glass-effect button with liquid animations and haptic feedback.
+class GlassButton extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final Widget child;
+  final double blur;
+  final bool isPrimary;
+  
+  const GlassButton({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.blur = 8.0,
+    this.isPrimary = false,
+  });
+  
+  @override
+  State<GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<GlassButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    ));
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onPressed,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) => Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        ),
+        child: GlassSurface(
+          blur: widget.blur,
+          elevation: 4.0,
+          borderRadius: BorderRadius.circular(20),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 12,
+          ),
+          child: DefaultTextStyle(
+            style: TextStyle(
+              color: widget.isPrimary
+                  ? Theme.of(context).primaryColor
+                  : Theme.of(context).textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.w600,
+            ),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A search bar with glass effect and animated focus states.
+class GlassSearchBar extends StatefulWidget {
+  final TextEditingController? controller;
+  final ValueChanged<String>? onChanged;
+  final String? hintText;
+  
+  const GlassSearchBar({
+    super.key,
+    this.controller,
+    this.onChanged,
+    this.hintText,
+  });
+
+  @override
+  State<GlassSearchBar> createState() => _GlassSearchBarState();
+}
+
+class _GlassSearchBarState extends State<GlassSearchBar> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: GlassSurface(
+        blur: _isFocused ? 15.0 : 10.0,
+        elevation: _isFocused ? 8.0 : 4.0,
+        borderRadius: BorderRadius.circular(20),
+        child: TextField(
+          controller: widget.controller,
+          onChanged: widget.onChanged,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
+          onTap: () => setState(() => _isFocused = true),
+          onSubmitted: (_) => setState(() => _isFocused = false),
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            prefixIcon: const Icon(Icons.search),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A glass card container with blur effect
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double? width;
+  final double? height;
+  final BorderRadius? borderRadius;
+
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.width,
+    this.height,
+    this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: borderRadius ?? BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding ?? const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha((0.1 * 255).round()),
+              borderRadius: borderRadius ?? BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withAlpha((0.2 * 255).round()),
+                width: 1,
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}

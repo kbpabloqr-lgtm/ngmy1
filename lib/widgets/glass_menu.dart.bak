@@ -1,0 +1,352 @@
+import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'dart:math' as math;
+
+/// A glass-effect menu with iOS 26-inspired design
+class CircularMenu extends StatelessWidget {
+  final double size;
+  const CircularMenu({super.key, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final ringR                border: Border.all(
+              color: Colors.white.withAlpha((0.2 * 255).round()),
+              width: 0.5,
+            ),s = size * 0.36;
+    final itemSize = size * 0.22;
+    final centralSize = size * 0.18;
+
+    // Menu items with modern icons and themed colors
+    final menuItems = [
+      _MenuItem('Growth & Investment', Icons.trending_up_rounded, _MenuColors.growth),
+      _MenuItem('Money Management', Icons.account_balance_wallet_rounded, _MenuColors.money),
+      _MenuItem('Media & News', Icons.live_tv_rounded, _MenuColors.media),
+      _MenuItem('NGMY Store', Icons.shopping_bag_rounded, _MenuColors.store),
+      _MenuItem('Family Tree', Icons.diversity_3_rounded, _MenuColors.family),
+      _MenuItem('Learn & Grow', Icons.school_rounded, _MenuColors.learn),
+    ];
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background glass disc
+          _buildGlassyBackground(size),
+          
+          // Menu items in a circle
+          ...List.generate(menuItems.length, (i) {
+            final angle = -math.pi / 2 + i * (2 * math.pi / 6);
+            return _buildMenuItem(
+              context,
+              menuItems[i],
+              ringRadius,
+              itemSize,
+              angle,
+            );
+          }),
+          
+          // Center button
+          _buildCenterButton(centralSize),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassyBackground(double size) {
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              Colors.white.withAlpha((0.15 * 255).round()),
+              Colors.white.withAlpha((0.05 * 255).round()),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ),
+        ),
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.2),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, _MenuItem item, double radius, double size, double angle) {
+    final position = Offset(
+      radius * math.cos(angle),
+      radius * math.sin(angle),
+    );
+
+    return Positioned(
+      left: size + position.dx,
+      top: size + position.dy,
+      child: Transform.translate(
+        offset: -Offset(size * 0.5, size * 0.5),
+        child: _GlassMenuItem(
+          item: item,
+          size: size,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterButton(double size) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: _GlassSurface(
+        borderRadius: BorderRadius.circular(size),
+        blur: 15,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.white.withOpacity(0.3),
+                Colors.white.withOpacity(0.1),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.home_rounded,
+              size: size * 0.5,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  
+  const _MenuItem(this.label, this.icon, this.color);
+}
+
+class _MenuColors {
+  static const growth = Color(0xFF00C853);   // Vibrant green
+  static const money = Color(0xFFFFD700);    // Gold
+  static const media = Color(0xFF2962FF);    // Bright blue
+  static const store = Color(0xFF00BFA5);    // Teal
+  static const family = Color(0xFF8E24AA);   // Royal purple
+  static const learn = Color(0xFFFF6D00);    // Bright orange
+}
+
+class _GlassMenuItem extends StatefulWidget {
+  final _MenuItem item;
+  final double size;
+
+  const _GlassMenuItem({
+    required this.item,
+    required this.size,
+  });
+
+  @override
+  State<_GlassMenuItem> createState() => _GlassMenuItemState();
+}
+
+class _GlassMenuItemState extends State<_GlassMenuItem> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    setState(() => _isPressed = true);
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    setState(() => _isPressed = false);
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    setState(() => _isPressed = false);
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label above the button
+        Container(
+          constraints: BoxConstraints(
+            maxWidth: widget.size * 3.5, // Even wider container for text
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.black.withOpacity(0.75),
+            border: Border.all(
+              color: widget.item.color.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            widget.item.label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13, // Slightly smaller font
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(
+                  color: widget.item.color.withOpacity(0.5),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            softWrap: true,
+            overflow: TextOverflow.visible, // Allow text to display fully
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Animated glass button
+        AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) => Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          ),
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            child: _GlassSurface(
+              borderRadius: BorderRadius.circular(widget.size),
+              blur: _isPressed ? 20 : 15,
+              child: Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      widget.item.color.withOpacity(0.3),
+                      widget.item.color.withOpacity(0.1),
+                    ],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Glowing background
+                    if (_isPressed) ...[
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                widget.item.color.withOpacity(0.3),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Icon with glow
+                    Center(
+                      child: Icon(
+                        widget.item.icon,
+                        size: widget.size * 0.5,
+                        color: widget.item.color.withOpacity(0.9),
+                        shadows: [
+                          Shadow(
+                            color: widget.item.color.withOpacity(0.5),
+                            blurRadius: _isPressed ? 20 : 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GlassSurface extends StatelessWidget {
+  final Widget child;
+  final BorderRadius borderRadius;
+  final double blur;
+
+  const _GlassSurface({
+    required this.child,
+    required this.borderRadius,
+    this.blur = 10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            color: Colors.white.withOpacity(0.1),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 0.5,
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
